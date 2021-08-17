@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: zephyr-behave
+Version: 1.0.0
+Summary: Generate Zephyr compatible file for uploading to Zephyr
+Home-page: https://github.com/KotieSmit/zephyr_behave
+Author: Kotie Smit
+Author-email: 
+License: MIT
+Keywords: bdd behave automation json Zephyr
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Testing
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.8
+
+Test results are recorded, and a Zephyr compatible json file is generated. A compressed and uncompressed file is created
+
