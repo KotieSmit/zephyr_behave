@@ -7,43 +7,52 @@ from zipfile import ZipFile
 from behave.model_core import Status
 import base64
 import six
+
 try:
     import json
 except ImportError:
     import simplejson as json
-# from behave2cucumberZephyr import 
+import os
+from os import listdir
+
 
 class ZephyrFormatter(Formatter):
     name = "Zepher Formatter"
     description = "Zepher compatible JSON file dump of test run"
     dumps_kwargs = {}
-    split_text_into_lines = True   # EXPERIMENT for better readability.
-
+    split_text_into_lines = True  # EXPERIMENT for better readability.
+    results_dir = "results/zephyr"
     json_number_types = six.integer_types + (float,)
     json_scalar_types = json_number_types + (six.text_type, bool, type(None))
+    file = None
+    step_count = 0
+    
 
     def __init__(self, stream_opener, config):
         super(ZephyrFormatter, self).__init__(stream_opener, config)
-        # -- ENSURE: Output stream is open.
-        self.stream = self.open()
-        self.file = open("results.json", "w")
+        self.file_cleanup(True)
         self.feature_count = 0
         self.current_feature = None
         self.current_feature_data = None
         self.current_scenario = None
         self._step_index = 0
+        self.step_count = 0
+        self.str_result_json=""
 
     def reset(self):
         self.current_feature = None
         self.current_feature_data = None
         self.current_scenario = None
         self._step_index = 0
+        self.step_count = 0
 
     # -- FORMATTER API:
     def uri(self, uri):
         pass
 
     def feature(self, feature):
+        self.file_cleanup(False, "tmp.json")
+        self.open_new_file()
         self.reset()
         self.current_feature = feature
         self.current_feature_data = {
@@ -51,20 +60,22 @@ class ZephyrFormatter(Formatter):
             "name": feature.name,
             "tags": list(feature.tags),
             "location": six.text_type(feature.location),
-            "status": None,     # Not known before feature run.
+            "status": None,  # Not known before feature run.
         }
         element = self.current_feature_data
         if feature.description:
             element["description"] = feature.description
 
     def background(self, background):
-        element = self.add_feature_element({
-            "type": "background",
-            "keyword": background.keyword,
-            "name": background.name,
-            "location": six.text_type(background.location),
-            "steps": [],
-        })
+        element = self.add_feature_element(
+            {
+                "type": "background",
+                "keyword": background.keyword,
+                "name": background.name,
+                "location": six.text_type(background.location),
+                "steps": [],
+            }
+        )
         if background.name:
             element["name"] = background.name
         self._step_index = 0
@@ -77,15 +88,17 @@ class ZephyrFormatter(Formatter):
         self.finish_current_scenario()
         self.current_scenario = scenario
 
-        element = self.add_feature_element({
-            "type": "scenario",
-            "keyword": scenario.keyword,
-            "name": scenario.name,
-            "tags": scenario.tags,
-            "location": six.text_type(scenario.location),
-            "steps": [],
-            "status": None,
-        })
+        element = self.add_feature_element(
+            {
+                "type": "scenario",
+                "keyword": scenario.keyword,
+                "name": scenario.name,
+                "tags": scenario.tags,
+                "location": six.text_type(scenario.location),
+                "steps": [],
+                "status": None,
+            }
+        )
         if scenario.description:
             element["description"] = scenario.description
         self._step_index = 0
@@ -94,7 +107,7 @@ class ZephyrFormatter(Formatter):
     def make_table(cls, table):
         table_data = {
             "headings": table.headings,
-            "rows": [list(row) for row in table.rows]
+            "rows": [list(row) for row in table.rows],
         }
         return table_data
 
@@ -115,6 +128,7 @@ class ZephyrFormatter(Formatter):
             s["table"] = self.make_table(step.table)
         element = self.current_feature_element
         element["steps"].append(s)
+        self.step_count = +1
 
     def match(self, match):
         args = []
@@ -161,10 +175,12 @@ class ZephyrFormatter(Formatter):
 
     def embedding(self, mime_type, data):
         step = self.current_feature_element["steps"][-1]
-        step["embeddings"].append({
-            "mime_type": mime_type,
-            "data": base64.b64encode(data).replace("\n", ""),
-        })
+        step["embeddings"].append(
+            {
+                "mime_type": mime_type,
+                "data": base64.b64encode(data).replace("\n", ""),
+            }
+        )
 
     def eof(self):
         """
@@ -185,28 +201,21 @@ class ZephyrFormatter(Formatter):
             self.write_json_feature_separator()
 
         self.write_json_feature(self.current_feature_data)
-        self.reset()
         self.feature_count += 1
+        self.write_feature_results()
+        self.reset()
+
+    def open_new_file(self):
+        self.file = open(f"{self.results_dir}/tmp.json", "w")
+        
 
     def close(self):
         if self.feature_count == 0:
             # -- FIRST FEATURE: Corner case when no features are provided.
             self.write_json_header()
-        self.write_json_footer()
-        # self.write_json_to_file()
-        self.close_stream()
-        with open("results.json", 'r') as f:
-            content = json.load(f)
-            zephyr_json = behave2cucumberZephyr.convert(content)
-        
-        with open('zephyr.json', 'w') as f:
-            json.dump(zephyr_json, f)
 
-        with ZipFile('zephyr.json.zip', 'w') as zf:
-            zf.write('zephyr.json')        
-        
-        
-
+        self.zip_files()
+        self.file_cleanup()
 
     # -- JSON-DATA COLLECTION:
     def add_feature_element(self, element):
@@ -234,16 +243,62 @@ class ZephyrFormatter(Formatter):
     # -- JSON-WRITER:
     def write_json_header(self):
         self.file.write("[")
+        self.file.flush()
 
     def write_json_footer(self):
         self.file.write("]")
         self.file.flush()
 
     def write_json_feature(self, feature_data):
-        self.file.write(json.dumps(feature_data, **self.dumps_kwargs))
+        self.file.write(json.dumps(feature_data))
         self.file.flush()
 
     def write_json_feature_separator(self):
         self.file.write(",\n\n")
+        self.file.flush()
 
-  
+    # -- File functions:
+
+    def file_cleanup(self, all_files=False, name=""):
+        for file_name in listdir(self.results_dir):
+            if all_files:
+                os.remove(f"{self.results_dir}/{file_name}")
+            elif file_name == name:
+                os.remove(f"{self.results_dir}/{file_name}")
+                break
+            elif file_name.endswith(".json") and file_name == name:
+                os.remove(f"{self.results_dir}/{file_name}")
+
+    def zip_files(self):
+        if len(os.listdir(self.results_dir)) > 1:  # There will be a tmp.json file
+
+            with ZipFile(f"{self.results_dir}/zephyr-json.zip", "w") as zf:
+                for file_name in listdir(self.results_dir):
+                    if file_name.endswith(".json") and file_name != "tmp.json":
+                        zf.write(f"{self.results_dir}/{file_name}")
+                zf.close()
+
+    def write_feature_results(self):
+        if self.step_count == 0:
+            self.feature_count = 0
+            self.close_stream()
+            return
+
+        self.write_json_footer()
+        self.feature_count = 0
+        for tag in self.current_feature_data["elements"][0]["tags"]:
+            if "TestCaseKey" in tag:
+                tag = tag.split("TestCaseKey=")[1]
+                break
+
+        self.close_stream()
+        with open(f"{self.results_dir}/tmp.json", "r") as f:
+            content = json.load(f)
+            zephyr_json = behave2cucumberZephyr.convert(content)
+            f.close()
+
+        file_name = f"{self.results_dir}/{tag}.json"
+
+        with open(file_name, "w") as f:
+            # json.dump(zephyr_json, f)
+            f.write(json.dumps(zephyr_json))
