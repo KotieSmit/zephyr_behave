@@ -13,7 +13,8 @@ try:
 except ImportError:
     import simplejson as json
 import os
-from os import listdir
+from os import listdir, makedirs
+from os.path import dirname
 
 
 class ZephyrFormatter(Formatter):
@@ -30,6 +31,7 @@ class ZephyrFormatter(Formatter):
 
     def __init__(self, stream_opener, config):
         super(ZephyrFormatter, self).__init__(stream_opener, config)
+        self.create_results_dirs()
         self.file_cleanup(True)
         self.feature_count = 0
         self.current_feature = None
@@ -38,6 +40,7 @@ class ZephyrFormatter(Formatter):
         self._step_index = 0
         self.step_count = 0
         self.str_result_json=""
+
 
     def reset(self):
         self.current_feature = None
@@ -258,16 +261,40 @@ class ZephyrFormatter(Formatter):
         self.file.flush()
 
     # -- File functions:
+    def create_results_dirs(self):
+        # path = dirname(dirname(__file__))
+        dirs = self.results_dir.split('/')
+        path = ""
+        for dir_name in dirs:
+            try:
+                # Create target Directory
+                if path == "" :
+                    path = dir_name
+                    makedirs(dir_name)
+                else:
+                    path = f"{path}/{dir_name}"
+                    makedirs(path)
+                print("Directory " , path ,  " Created ") 
+                
+            except FileExistsError:
+                print("Directory " , path ,  " already exists")        
+
 
     def file_cleanup(self, all_files=False, name=""):
-        for file_name in listdir(self.results_dir):
-            if all_files:
-                os.remove(f"{self.results_dir}/{file_name}")
-            elif file_name == name:
-                os.remove(f"{self.results_dir}/{file_name}")
-                break
-            elif file_name.endswith(".json") and file_name == name:
-                os.remove(f"{self.results_dir}/{file_name}")
+        try:
+            for file_name in listdir(self.results_dir):
+                if all_files:
+                    os.remove(f"{self.results_dir}/{file_name}")
+                elif file_name == name:
+                    os.remove(f"{self.results_dir}/{file_name}")
+                    break
+                elif file_name.endswith(".json") and file_name == name:
+                    os.remove(f"{self.results_dir}/{file_name}")
+        except FileNotFoundError:
+            pass
+        except PermissionError:
+            print("Can not delete folder")
+
 
     def zip_files(self):
         if len(os.listdir(self.results_dir)) > 1:  # There will be a tmp.json file
