@@ -283,8 +283,8 @@ class ZephyrFormatter(Formatter):
 
 
     def file_cleanup(self, all_files=False, name=""):
-        try:
-            for file_name in listdir(self.results_dir):
+        for file_name in listdir(self.results_dir):
+            try:
                 if all_files:
                     os.remove(f"{self.results_dir}/{file_name}")
                 elif file_name == name:
@@ -292,10 +292,10 @@ class ZephyrFormatter(Formatter):
                     break
                 elif file_name.endswith(".json") and file_name == name:
                     os.remove(f"{self.results_dir}/{file_name}")
-        except FileNotFoundError:
-            pass
-        except PermissionError:
-            print("Can not delete folder")
+            except FileNotFoundError:
+                pass
+            except PermissionError:
+                print("Can not delete folder")
 
 
     def zip_files(self):
@@ -308,6 +308,7 @@ class ZephyrFormatter(Formatter):
                 zf.close()
 
     def write_feature_results(self):
+
         if self.step_count == 0:
             self.feature_count = 0
             self.close_stream()
