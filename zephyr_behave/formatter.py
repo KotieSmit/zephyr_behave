@@ -15,7 +15,7 @@ except ImportError:
 import os
 from os import listdir, makedirs
 from os.path import dirname
-
+import requests
 
 class ZephyrFormatter(Formatter):
     name = "Zepher Formatter"
@@ -23,6 +23,7 @@ class ZephyrFormatter(Formatter):
     dumps_kwargs = {}
     split_text_into_lines = True  # EXPERIMENT for better readability.
     results_dir = "results/zephyr"
+    results_file = "zephyr-json.zip"
     json_number_types = six.integer_types + (float,)
     json_scalar_types = json_number_types + (six.text_type, bool, type(None))
     file = None
@@ -218,6 +219,7 @@ class ZephyrFormatter(Formatter):
             self.write_json_header()
 
         self.zip_files()
+        self.upload_results()
         self.file_cleanup()
 
     # -- JSON-DATA COLLECTION:
@@ -299,7 +301,7 @@ class ZephyrFormatter(Formatter):
     def zip_files(self):
         if len(os.listdir(self.results_dir)) > 1:  # There will be a tmp.json file
 
-            with ZipFile(f"{self.results_dir}/zephyr-json.zip", "w") as zf:
+            with ZipFile(f"{self.results_dir}/{self.results_file}", "w") as zf:
                 for file_name in listdir(self.results_dir):
                     if file_name.endswith(".json") and file_name != "tmp.json":
                         zf.write(f"{self.results_dir}/{file_name}")
@@ -329,3 +331,29 @@ class ZephyrFormatter(Formatter):
         with open(file_name, "w") as f:
             # json.dump(zephyr_json, f)
             f.write(json.dumps(zephyr_json))
+
+    def upload_results(self):
+        upload_results = self.config.userdata.get("ZEPHYR_UPLOAD_RESULTS", 'false').lower()
+        
+        if upload_results == 'false':
+            return
+
+        url_base = self.config.userdata.get("ZEPHYR_API_URL", "")
+        zephyr_project_key = self.config.userdata.get("ZEPHYR_PROJECT_KEY", "")
+        create_test_cases = self.config.userdata.get("ZEPHYR_AUTO_CREATE_TEST_CASES", 'false').lower()
+        url = f"{url_base}?projectKey={zephyr_project_key}&autoCreateTestCases={create_test_cases}"
+
+        file = f"{self.results_dir}/{self.results_file}"
+
+        payload={}
+        files=[('file',(self.results_file,open(file,'rb'),'application/zip'))]
+        headers = {
+            'Authorization': self.config.userdata.get("ZEPHYR_API_KEY", "")
+        }
+
+        response = requests.request("POST", url, headers=headers, data=payload, files=files)
+
+        print(response.text)
+
+
+
