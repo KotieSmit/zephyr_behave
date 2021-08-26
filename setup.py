@@ -5,9 +5,9 @@ here = path.abspath(path.dirname(__file__))
 
 setup(
     name="zephyr_behave",
-    version="1.1.5",
+    version="1.1.9",
     description="Generate Zephyr compatible file for uploading to Zephyr",
-    long_description="Test results are recorded, and a Zephyr compatible json file is generated. A compressed and uncompressed file is created",
+    long_description="Test results are recorded, and a Zephyr compatible json file is generated, a compressed and uncompressed file is created.  From v1.1.7 you have the option of uploading to Zephyr",
     url="https://github.com/KotieSmit/zephyr_behave",
     author="Kotie Smit",
     author_email="",

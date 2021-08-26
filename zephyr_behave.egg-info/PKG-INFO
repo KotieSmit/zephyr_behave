@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: zephyr-behave
-Version: 1.1.5
+Version: 1.1.9
 Summary: Generate Zephyr compatible file for uploading to Zephyr
 Home-page: https://github.com/KotieSmit/zephyr_behave
 Author: Kotie Smit
@@ -14,5 +14,5 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.8
 
-Test results are recorded, and a Zephyr compatible json file is generated. A compressed and uncompressed file is created
+Test results are recorded, and a Zephyr compatible json file is generated, a compressed and uncompressed file is created.  From v1.1.7 you have the option of uploading to Zephyr
 

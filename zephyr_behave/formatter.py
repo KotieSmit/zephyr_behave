@@ -279,8 +279,9 @@ class ZephyrFormatter(Formatter):
                 print("Directory " , path ,  " Created ") 
                 
             except FileExistsError:
-                print("Directory " , path ,  " already exists")        
-
+                if self.config.verbose:
+                    print("Directory " , path ,  " already exists")        
+                pass
 
     def file_cleanup(self, all_files=False, name=""):
         for file_name in listdir(self.results_dir):
@@ -295,7 +296,9 @@ class ZephyrFormatter(Formatter):
             except FileNotFoundError:
                 pass
             except PermissionError:
-                print("Can not delete folder")
+                if self.config.verbose:
+                    print("Can not delete folder")
+                pass
 
 
     def zip_files(self):
@@ -341,6 +344,10 @@ class ZephyrFormatter(Formatter):
 
         url_base = self.config.userdata.get("ZEPHYR_API_URL", "")
         zephyr_project_key = self.config.userdata.get("ZEPHYR_PROJECT_KEY", "")
+        api_key = self.config.userdata.get("ZEPHYR_API_KEY", "")
+        if api_key == "": # I know... this is unfortuantely a hack for a short comming
+            api_key = self.config.userdata.get("zephyr_api_key", "")
+
         create_test_cases = self.config.userdata.get("ZEPHYR_AUTO_CREATE_TEST_CASES", 'false').lower()
         url = f"{url_base}?projectKey={zephyr_project_key}&autoCreateTestCases={create_test_cases}"
 
@@ -349,12 +356,12 @@ class ZephyrFormatter(Formatter):
         payload={}
         files=[('file',(self.results_file,open(file,'rb'),'application/zip'))]
         headers = {
-            'Authorization': self.config.userdata.get("ZEPHYR_API_KEY", "")
+            'Authorization': api_key
         }
 
         response = requests.request("POST", url, headers=headers, data=payload, files=files)
-
-        print(response.text)
+        response.raise_for_status()
+        print(f"Test cycle key: {json.loads(response.text)['testCycle']['key']}")
 
 
 
